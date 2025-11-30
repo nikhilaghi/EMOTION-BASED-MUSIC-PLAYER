@@ -1,0 +1,98 @@
+import cv2
+from deepface import DeepFace
+import webbrowser
+import tkinter as tk
+from tkinter import Label, Button, Frame
+from PIL import Image, ImageTk
+
+songs = {
+    "happy": "https://www.youtube.com/watch?v=ZbZSe6N_BXs",
+    "sad": "https://www.youtube.com/watch?v=hLQl3WQQoQ0",
+    "angry": "https://www.youtube.com/watch?v=hTWKbfoikeg",
+    "fear": "https://www.youtube.com/watch?v=0KSOMA3QBU0",
+    "surprise": "https://www.youtube.com/watch?v=ktvTqknDobU",
+    "neutral": "https://www.youtube.com/watch?v=3GwjfUFyY6M"
+}
+
+emotion_result = "Not detected yet"
+camera = None
+
+def start_camera():
+    global camera
+    camera = cv2.VideoCapture(0)
+    update_frame()
+
+def update_frame():
+    global camera
+
+    ret, frame = camera.read()
+    if ret:
+        frame = cv2.resize(frame, (450, 300))
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame)
+        imgtk = ImageTk.PhotoImage(image=img)
+        camera_label.imgtk = imgtk
+        camera_label.configure(image=imgtk)
+
+    camera_label.after(10, update_frame)
+
+
+def capture_emotion():
+    global camera, emotion_result
+
+    ret, frame = camera.read()
+    cv2.imwrite("user.jpg", frame)
+
+    result = DeepFace.analyze(
+        img_path="user.jpg",
+        actions=['emotion'],
+        detector_backend='opencv'
+    )
+
+    if isinstance(result, list):
+        result = result[0]
+
+    emotion = result.get("dominant_emotion", "neutral").lower()
+    emotion_result = emotion
+    emotion_label.config(text=f"Detected Emotion: {emotion.upper()}", fg="blue")
+
+def play_song():
+    emotion = emotion_result.lower()
+    url = songs.get(emotion, songs["neutral"])
+    webbrowser.open(url)
+
+root = tk.Tk()
+root.title("Emotion Based Music Player")
+root.geometry("800x950")
+root.configure(bg="white")
+
+title = Label(root, text="Emotion Based Music Player",
+              font=("Arial", 26, "bold"),
+              bg="white", fg="black")
+title.pack(pady=20)
+
+cam_frame = Frame(root, bg="white")
+cam_frame.pack()
+
+camera_label = Label(cam_frame, bg="white")
+camera_label.pack()
+
+btn_frame = Frame(root, bg="white")
+btn_frame.pack(pady=40)
+
+capture_btn = Button(btn_frame, text="Capture Emotion",
+                     font=("Arial", 16), bg="#4CAF50",
+                     fg="white", command=capture_emotion)
+capture_btn.pack(pady=15)
+
+emotion_label = Label(btn_frame, text="Detected Emotion: None",
+                       font=("Arial", 18), bg="white")
+emotion_label.pack(pady=10)
+
+play_btn = Button(btn_frame, text="Play Song",
+                  font=("Arial", 16), bg="#2196F3",
+                  fg="white", command=play_song)
+play_btn.pack(pady=15)
+
+start_camera()
+root.mainloop()
